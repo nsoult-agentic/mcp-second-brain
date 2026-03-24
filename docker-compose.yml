@@ -1,0 +1,61 @@
+# docker-compose.yml for mcp-second-brain
+# Deploy: Portainer -> Stacks -> Add from Repository -> GitOps polling
+# CI/CD: GitHub Actions builds image on push, updates this tag automatically
+#
+# SECURITY: This file was generated following PAI hardened container policy.
+# Do NOT add: docker.sock mounts, privileged mode, host network/PID,
+# extra capabilities, or secrets in environment variables.
+
+services:
+  mcp-second-brain:
+    image: ghcr.io/nsoult-agentic/mcp-second-brain:latest
+    container_name: mcp-second-brain
+    restart: unless-stopped
+
+    # -- Network --
+    ports:
+      - "127.0.0.1:8904:8904"  # Loopback ONLY — no external access
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Access PostgreSQL on host (127.0.0.1:5432)
+
+    # -- Security Hardening --
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+    # -- Resource Limits --
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "1.0"
+
+    # -- Filesystem --
+    volumes:
+      # Secrets — root-owned on host, read-only in container
+      - /srv/mcp-second-brain/secrets:/secrets:ro
+    tmpfs:
+      - /tmp:size=64m
+
+    # -- Health Check --
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://127.0.0.1:8904/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    # -- Environment --
+    environment:
+      - NODE_ENV=production
+      - SECRETS_DIR=/secrets
+      - PORT=8904
+      - DB_HOST=host.docker.internal
+      - DB_PORT=5432
+      - DB_NAME=second_brain
+      - DB_USER=pai
+      - OLLAMA_URL=http://172.16.10.50:11434
+      - OLLAMA_MODEL=nomic-embed-text
+      # NEVER put DB password here — read from /secrets/db-password
