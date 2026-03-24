@@ -15,8 +15,8 @@ services:
     # -- Network --
     ports:
       - "127.0.0.1:8904:8904"  # Loopback ONLY — no external access
-    extra_hosts:
-      - "host.docker.internal:host-gateway"  # Access PostgreSQL on host (127.0.0.1:5432)
+    networks:
+      - second-brain
 
     # -- Security Hardening --
     read_only: true
@@ -37,7 +37,7 @@ services:
       # Secrets — root-owned on host, read-only in container
       - /srv/mcp-second-brain/secrets:/secrets:ro
     tmpfs:
-      - /tmp:size=64m
+      - /tmp:size=64m,noexec,nosuid
 
     # -- Health Check --
     healthcheck:
@@ -52,10 +52,15 @@ services:
       - NODE_ENV=production
       - SECRETS_DIR=/secrets
       - PORT=8904
-      - DB_HOST=host.docker.internal
+      - DB_HOST=second-brain-db
       - DB_PORT=5432
       - DB_NAME=second_brain
       - DB_USER=pai
       - OLLAMA_URL=http://172.16.10.50:11434
       - OLLAMA_MODEL=nomic-embed-text
       # NEVER put DB password here — read from /secrets/db-password
+
+networks:
+  second-brain:
+    external: true
+    name: second-brain_default
