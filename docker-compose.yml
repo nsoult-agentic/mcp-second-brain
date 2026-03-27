@@ -16,7 +16,7 @@ services:
     ports:
       - "127.0.0.1:8904:8904"  # Loopback ONLY — no external access
     networks:
-      - second-brain
+      - brain
 
     # -- Security Hardening --
     read_only: true
@@ -61,6 +61,6 @@ services:
       # NEVER put DB password here — read from /secrets/db-password
 
 networks:
-  second-brain:
+  brain:
     external: true
-    name: second-brain_default
+    name: second-brain
