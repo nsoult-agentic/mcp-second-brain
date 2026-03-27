@@ -7,9 +7,6 @@ const SECRETS_DIR = process.env.SECRETS_DIR || "/secrets";
 // --- File-based Secret Loading (no SOPS) ---
 
 function getDbPassword(): string {
-  // Allow env var override for local development / testing
-  if (process.env.DB_PASSWORD) return process.env.DB_PASSWORD;
-
   const path = resolve(SECRETS_DIR, "db-password");
   try {
     const pw = readFileSync(path, "utf-8").trim(); // .trim() defends against trailing newline
