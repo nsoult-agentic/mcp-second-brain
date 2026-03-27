@@ -1,4 +1,4 @@
-const OLLAMA_URL = process.env.OLLAMA_URL ?? "http://172.16.10.50:11434";
+const OLLAMA_URL = process.env.OLLAMA_URL!;
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "nomic-embed-text";
 const OLLAMA_TIMEOUT = parseInt(process.env.OLLAMA_TIMEOUT ?? "15000", 10);
 const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY ?? "";
