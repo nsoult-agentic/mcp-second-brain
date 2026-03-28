@@ -59,6 +59,22 @@ async function healthCheck(): Promise<Response> {
   }
 }
 
+// --- Rate Limiter (sliding window) ---
+
+const RATE_LIMIT = 30;
+const RATE_WINDOW_MS = 60_000;
+const requestTimestamps: number[] = [];
+
+function isRateLimited(): boolean {
+  const now = Date.now();
+  while (requestTimestamps.length > 0 && requestTimestamps[0]! < now - RATE_WINDOW_MS) {
+    requestTimestamps.shift();
+  }
+  if (requestTimestamps.length >= RATE_LIMIT) return true;
+  requestTimestamps.push(now);
+  return false;
+}
+
 // --- HTTP Server (stateless mode: one transport+server per request) ---
 
 const httpServer = Bun.serve({
@@ -72,6 +88,9 @@ const httpServer = Bun.serve({
     }
 
     if (url.pathname === "/mcp") {
+      if (isRateLimited()) {
+        return new Response("Too Many Requests", { status: 429 });
+      }
       const transport = new WebStandardStreamableHTTPServerTransport({
         sessionIdGenerator: undefined, // stateless
       });

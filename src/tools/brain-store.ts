@@ -4,7 +4,7 @@ import { embed } from "../embedding.js";
 import { toVectorLiteral } from "../vector.js";
 
 export const BrainStoreInput = {
-  text: z.string().describe("The text content to store"),
+  text: z.string().min(1).max(100000).describe("The text content to store"),
   title: z
     .string()
     .optional()
@@ -39,41 +39,46 @@ export type BrainStoreParams = {
 };
 
 export async function brainStore(params: BrainStoreParams): Promise<string> {
-  const sql = getDb();
-  const { text, title: titleParam, category, metadata, status, confidence } = params;
+  try {
+    const sql = getDb();
+    const { text, title: titleParam, category, metadata, status, confidence } = params;
 
-  const title = (titleParam ?? text.slice(0, 80)).slice(0, 500);
+    const title = (titleParam ?? text.slice(0, 80)).slice(0, 500);
 
-  // Generate embedding
-  const embeddingText = title + "\n" + text;
-  const embResult = await embed(embeddingText);
+    // Generate embedding
+    const embeddingText = title + "\n" + text;
+    const embResult = await embed(embeddingText);
 
-  let vecParam: string | null = null;
-  if (embResult) {
-    vecParam = toVectorLiteral(embResult.embedding);
+    let vecParam: string | null = null;
+    if (embResult) {
+      vecParam = toVectorLiteral(embResult.embedding);
+    }
+
+    const rows = await sql`
+      INSERT INTO items (
+        category, confidence, title, summary, content,
+        metadata, source, status
+        ${vecParam ? sql`, embedding` : sql``}
+      ) VALUES (
+        ${category},
+        ${confidence},
+        ${title},
+        ${text.slice(0, 1000)},
+        ${text},
+        ${JSON.stringify(metadata ?? {})},
+        'mcp',
+        ${status}
+        ${vecParam ? sql`, ${vecParam}::vector` : sql``}
+      )
+      RETURNING id, created_at
+    `;
+
+    const item = rows[0];
+    const embedded = vecParam ? "yes" : "no (Ollama unavailable)";
+
+    return `Stored as item #${item.id} (category: ${category}, confidence: ${(confidence * 100).toFixed(0)}%, embedded: ${embedded}, created: ${item.created_at})`;
+  } catch (err) {
+    console.error("[brain-store] Store failed:", err instanceof Error ? err.message : err);
+    return "Failed to store item. Please check your parameters and try again.";
   }
-
-  const rows = await sql`
-    INSERT INTO items (
-      category, confidence, title, summary, content,
-      metadata, source, status
-      ${vecParam ? sql`, embedding` : sql``}
-    ) VALUES (
-      ${category},
-      ${confidence},
-      ${title},
-      ${text.slice(0, 1000)},
-      ${text},
-      ${JSON.stringify(metadata ?? {})},
-      'mcp',
-      ${status}
-      ${vecParam ? sql`, ${vecParam}::vector` : sql``}
-    )
-    RETURNING id, created_at
-  `;
-
-  const item = rows[0];
-  const embedded = vecParam ? "yes" : "no (Ollama unavailable)";
-
-  return `Stored as item #${item.id} (category: ${category}, confidence: ${(confidence * 100).toFixed(0)}%, embedded: ${embedded}, created: ${item.created_at})`;
 }

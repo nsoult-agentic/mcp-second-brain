@@ -4,7 +4,7 @@ import { embed } from "../embedding.js";
 import { toVectorLiteral } from "../vector.js";
 
 export const BrainSearchInput = {
-  query: z.string().describe("The search query text"),
+  query: z.string().min(1).max(10000).describe("The search query text"),
   mode: z
     .enum(["semantic", "fulltext", "hybrid"])
     .default("hybrid")
@@ -243,42 +243,47 @@ async function countGhostItems(sql: Sql): Promise<number> {
 // --- Main search function ---
 
 export async function brainSearch(params: BrainSearchParams): Promise<string> {
-  const sql = getDb();
-  const { query, mode } = params;
+  try {
+    const sql = getDb();
+    const { query, mode } = params;
 
-  let queryEmbedding: number[] | null = null;
+    let queryEmbedding: number[] | null = null;
 
-  if (mode === "semantic" || mode === "hybrid") {
-    const embResult = await embed(query);
-    if (embResult) {
-      queryEmbedding = embResult.embedding;
-    } else if (mode === "semantic") {
-      return "Error: Could not generate embedding for query. Ollama may be unavailable. Try mode='fulltext'.";
+    if (mode === "semantic" || mode === "hybrid") {
+      const embResult = await embed(query);
+      if (embResult) {
+        queryEmbedding = embResult.embedding;
+      } else if (mode === "semantic") {
+        return "Error: Could not generate embedding for query. Ollama may be unavailable. Try mode='fulltext'.";
+      }
     }
-  }
 
-  let rows: SearchRow[];
+    let rows: SearchRow[];
 
-  if (mode === "semantic" && queryEmbedding) {
-    rows = await semanticSearch(sql, queryEmbedding, params);
-  } else if (mode === "fulltext" || (mode === "hybrid" && !queryEmbedding)) {
-    rows = await fulltextSearch(sql, query, params);
-  } else {
-    rows = await hybridSearch(sql, query, queryEmbedding!, params);
-  }
-
-  const header =
-    mode === "hybrid" && !queryEmbedding
-      ? `[Hybrid degraded to fulltext — Ollama unavailable]\n\n`
-      : "";
-
-  let footer = "";
-  if (mode === "semantic" || mode === "hybrid") {
-    const ghostCount = await countGhostItems(sql);
-    if (ghostCount > 0) {
-      footer = `\n\n⚠ ${ghostCount} item(s) have no embedding and are excluded from semantic search. Run backfill-embeddings.ts to fix.`;
+    if (mode === "semantic" && queryEmbedding) {
+      rows = await semanticSearch(sql, queryEmbedding, params);
+    } else if (mode === "fulltext" || (mode === "hybrid" && !queryEmbedding)) {
+      rows = await fulltextSearch(sql, query, params);
+    } else {
+      rows = await hybridSearch(sql, query, queryEmbedding!, params);
     }
-  }
 
-  return header + formatResults(rows) + footer;
+    const header =
+      mode === "hybrid" && !queryEmbedding
+        ? `[Hybrid degraded to fulltext — Ollama unavailable]\n\n`
+        : "";
+
+    let footer = "";
+    if (mode === "semantic" || mode === "hybrid") {
+      const ghostCount = await countGhostItems(sql);
+      if (ghostCount > 0) {
+        footer = `\n\n⚠ ${ghostCount} item(s) have no embedding and are excluded from semantic search. Run backfill-embeddings.ts to fix.`;
+      }
+    }
+
+    return header + formatResults(rows) + footer;
+  } catch (err) {
+    console.error("[brain-search] Query failed:", err instanceof Error ? err.message : err);
+    return "Search failed. Please check your parameters and try again.";
+  }
 }
