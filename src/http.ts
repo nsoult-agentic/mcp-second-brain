@@ -10,6 +10,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { BrainSearchInput, brainSearch } from "./tools/brain-search.js";
 import { BrainStoreInput, brainStore } from "./tools/brain-store.js";
+import { BrainUpdateInput, brainUpdate } from "./tools/brain-update.js";
 import { getDb, close } from "./db.js";
 
 const PORT = Number(process.env["PORT"]) || 8904;
@@ -35,6 +36,15 @@ function createServer(): McpServer {
     BrainStoreInput,
     async (params) => ({
       content: [{ type: "text" as const, text: await brainStore(params) }],
+    }),
+  );
+
+  server.tool(
+    "brain-update",
+    "Update an existing item in the Second Brain. Can change text, title, category, status, confidence, or metadata. Use reembed:true to regenerate the embedding vector (backfill items stored without embeddings).",
+    BrainUpdateInput,
+    async (params) => ({
+      content: [{ type: "text" as const, text: await brainUpdate(params) }],
     }),
   );
 
@@ -104,7 +114,7 @@ const httpServer = Bun.serve({
 });
 
 console.log(`mcp-second-brain listening on http://0.0.0.0:${PORT}/mcp`);
-console.log("Tools: brain-search, brain-store");
+console.log("Tools: brain-search, brain-store, brain-update");
 
 process.on("SIGTERM", async () => {
   httpServer.stop();
