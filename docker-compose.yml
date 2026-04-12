@@ -17,6 +17,7 @@ services:
       - "127.0.0.1:8904:8904"  # Loopback ONLY — no external access
     networks:
       - brain
+      - mcp_network
 
     # -- Security Hardening --
     read_only: true
@@ -64,3 +65,5 @@ networks:
   brain:
     external: true
     name: second-brain
+  mcp_network:
+    external: true
