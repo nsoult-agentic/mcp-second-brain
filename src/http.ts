@@ -11,6 +11,7 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { BrainSearchInput, brainSearch } from "./tools/brain-search.js";
 import { BrainStoreInput, brainStore } from "./tools/brain-store.js";
 import { BrainUpdateInput, brainUpdate } from "./tools/brain-update.js";
+import { BrainErrorsInput, brainErrors } from "./tools/brain-errors.js";
 import { getDb, close } from "./db.js";
 
 const PORT = Number(process.env["PORT"]) || 8904;
@@ -45,6 +46,15 @@ function createServer(): McpServer {
     BrainUpdateInput,
     async (params) => ({
       content: [{ type: "text" as const, text: await brainUpdate(params) }],
+    }),
+  );
+
+  server.tool(
+    "brain-errors",
+    "Query recent errors from the PAI infrastructure. Errors are stored by hooks, MCP servers, and system components. Use to diagnose failures, check error trends, or review what went wrong in the last N hours.",
+    BrainErrorsInput,
+    async (params) => ({
+      content: [{ type: "text" as const, text: await brainErrors(params) }],
     }),
   );
 
