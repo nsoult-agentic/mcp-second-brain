@@ -72,7 +72,6 @@ export async function brainUpdate(params: BrainUpdateParams): Promise<string> {
 
     if (text !== undefined) {
       updates.content = text;
-      updates.summary = text.slice(0, 1000);
     }
     if (title !== undefined) updates.title = title.slice(0, 500);
     if (category !== undefined) updates.category = category;
@@ -108,7 +107,6 @@ export async function brainUpdate(params: BrainUpdateParams): Promise<string> {
       await sql`
         UPDATE items SET
           title = ${(updates.title as string) ?? item.title},
-          summary = ${(updates.summary as string) ?? item.summary},
           content = ${(updates.content as string) ?? item.content},
           category = ${(updates.category as string) ?? item.category},
           status = ${(updates.status as string) ?? item.status},

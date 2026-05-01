@@ -11,6 +11,7 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { BrainSearchInput, brainSearch } from "./tools/brain-search.js";
 import { BrainStoreInput, brainStore } from "./tools/brain-store.js";
 import { BrainUpdateInput, brainUpdate } from "./tools/brain-update.js";
+import { BrainGetInput, brainGet } from "./tools/brain-get.js";
 import { BrainErrorsInput, brainErrors } from "./tools/brain-errors.js";
 import { getDb, close } from "./db.js";
 
@@ -19,7 +20,7 @@ const PORT = Number(process.env["PORT"]) || 8904;
 function createServer(): McpServer {
   const server = new McpServer({
     name: "mcp-second-brain",
-    version: "0.2.0",
+    version: "0.3.0",
   });
 
   server.tool(
@@ -46,6 +47,15 @@ function createServer(): McpServer {
     BrainUpdateInput,
     async (params) => ({
       content: [{ type: "text" as const, text: await brainUpdate(params) }],
+    }),
+  );
+
+  server.tool(
+    "brain-get",
+    "Retrieve a single item from the Second Brain by its ID. Returns the complete content, metadata, and all fields. Use when you know the item ID and need the full text — avoids running search machinery for a primary key lookup.",
+    BrainGetInput,
+    async (params) => ({
+      content: [{ type: "text" as const, text: await brainGet(params) }],
     }),
   );
 
@@ -124,7 +134,7 @@ const httpServer = Bun.serve({
 });
 
 console.log(`mcp-second-brain listening on http://0.0.0.0:${PORT}/mcp`);
-console.log("Tools: brain-search, brain-store, brain-update");
+console.log("Tools: brain-search, brain-store, brain-update, brain-get, brain-errors");
 
 process.on("SIGTERM", async () => {
   httpServer.stop();

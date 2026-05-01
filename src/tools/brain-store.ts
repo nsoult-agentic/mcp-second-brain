@@ -56,14 +56,13 @@ export async function brainStore(params: BrainStoreParams): Promise<string> {
 
     const rows = await sql`
       INSERT INTO items (
-        category, confidence, title, summary, content,
+        category, confidence, title, content,
         metadata, source, status
         ${vecParam ? sql`, embedding` : sql``}
       ) VALUES (
         ${category},
         ${confidence},
         ${title},
-        ${text.slice(0, 1000)},
         ${text},
         ${JSON.stringify(metadata ?? {})},
         'mcp',

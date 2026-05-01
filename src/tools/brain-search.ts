@@ -38,6 +38,10 @@ export const BrainSearchInput = {
     .max(50)
     .default(10)
     .describe("Maximum results to return (1-50, default 10)"),
+  detail: z
+    .enum(["ids", "summary", "full"])
+    .default("summary")
+    .describe("Output detail level: 'ids' (titles+scores only), 'summary' (default, first 500 chars), 'full' (complete content)"),
 };
 
 export type BrainSearchParams = {
@@ -49,12 +53,12 @@ export type BrainSearchParams = {
   after?: string;
   before?: string;
   limit: number;
+  detail: "ids" | "summary" | "full";
 };
 
 interface SearchRow {
   id: number;
   title: string;
-  summary: string | null;
   content: string | null;
   category: string;
   confidence: number;
@@ -66,7 +70,7 @@ interface SearchRow {
   combined_score?: number;
 }
 
-function formatResults(rows: SearchRow[]): string {
+function formatResults(rows: SearchRow[], detail: "ids" | "summary" | "full"): string {
   if (rows.length === 0) return "No results found.";
 
   const mainLines: string[] = [];
@@ -80,13 +84,17 @@ function formatResults(rows: SearchRow[]): string {
       `    Created: ${new Date(r.created_at).toISOString().slice(0, 10)}`,
     ];
 
-    if (r.summary) {
-      parts.push(`    ${r.summary.slice(0, 200)}`);
+    if (detail === "summary" && r.content) {
+      parts.push(`    ${r.content.slice(0, 500)}`);
+    } else if (detail === "full" && r.content) {
+      parts.push(`    ${r.content}`);
     }
 
-    const metaKeys = Object.keys(r.metadata ?? {});
-    if (metaKeys.length > 0) {
-      parts.push(`    Metadata: ${JSON.stringify(r.metadata).slice(0, 150)}`);
+    if (detail !== "ids") {
+      const metaKeys = Object.keys(r.metadata ?? {});
+      if (metaKeys.length > 0) {
+        parts.push(`    Metadata: ${JSON.stringify(r.metadata)}`);
+      }
     }
 
     mainLines.push(parts.join("\n"));
@@ -118,7 +126,7 @@ async function semanticSearch(
 
   return (await sql`
     SELECT
-      id, title, summary, content, category, confidence, status,
+      id, title, content, category, confidence, status,
       created_at, metadata,
       1 - (embedding <=> ${vecParam}::vector) AS similarity
     FROM items
@@ -144,7 +152,7 @@ async function fulltextSearch(
 
   return (await sql`
     SELECT
-      id, title, summary, content, category, confidence, status,
+      id, title, content, category, confidence, status,
       created_at, metadata,
       ts_rank_cd(search_vector, websearch_to_tsquery('english', ${query})) AS fts_rank
     FROM items
@@ -219,7 +227,7 @@ async function hybridSearch(
       GROUP BY id
     )
     SELECT
-      i.id, i.title, i.summary, i.content, i.category, i.confidence, i.status,
+      i.id, i.title, i.content, i.category, i.confidence, i.status,
       i.created_at, i.metadata,
       sem.similarity,
       fts.fts_rank,
@@ -245,7 +253,7 @@ async function countGhostItems(sql: Sql): Promise<number> {
 export async function brainSearch(params: BrainSearchParams): Promise<string> {
   try {
     const sql = getDb();
-    const { query, mode } = params;
+    const { query, mode, detail } = params;
 
     let queryEmbedding: number[] | null = null;
 
@@ -281,7 +289,7 @@ export async function brainSearch(params: BrainSearchParams): Promise<string> {
       }
     }
 
-    return header + formatResults(rows) + footer;
+    return header + formatResults(rows, detail) + footer;
   } catch (err) {
     console.error("[brain-search] Query failed:", err instanceof Error ? err.message : err);
     return "Search failed. Please check your parameters and try again.";

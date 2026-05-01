@@ -57,7 +57,7 @@ export async function brainErrors(params: BrainErrorsParams): Promise<string> {
     );
 
     const rows = await sql`
-      SELECT id, title, summary, metadata, created_at
+      SELECT id, title, content, metadata, created_at
       FROM items
       WHERE ${where}
       ORDER BY created_at DESC
@@ -85,7 +85,7 @@ export async function brainErrors(params: BrainErrorsParams): Promise<string> {
       .join(", ");
 
     // Format output
-    const lines = rows.map((row: { id: number; title: string; summary: string; metadata: Record<string, unknown> | string; created_at: string }, i: number) => {
+    const lines = rows.map((row: { id: number; title: string; content: string; metadata: Record<string, unknown> | string; created_at: string }, i: number) => {
       let meta: Record<string, unknown> = {};
       try {
         meta = typeof row.metadata === "string" ? JSON.parse(row.metadata) : (row.metadata as Record<string, unknown>);
@@ -95,7 +95,7 @@ export async function brainErrors(params: BrainErrorsParams): Promise<string> {
       const src = (meta.source as string) || "unknown";
       const ts = new Date(row.created_at).toISOString().slice(0, 19);
 
-      return `[${i + 1}] #${row.id} — ${row.title} (${ts})\n    Level: ${lvl} | Source: ${src}\n    ${(row.summary || "").slice(0, 200)}`;
+      return `[${i + 1}] #${row.id} — ${row.title} (${ts})\n    Level: ${lvl} | Source: ${src}\n    ${(row.content || "").slice(0, 500)}`;
     });
 
     return `Errors in last ${hours}h (${countSummary}):\n\n${lines.join("\n\n")}`;
