@@ -8,7 +8,7 @@
 
 services:
   mcp-second-brain:
-    image: ghcr.io/nsoult-agentic/mcp-second-brain:sha-16a3952
+    image: ghcr.io/nsoult-agentic/mcp-second-brain:sha-0934dfd
     container_name: mcp-second-brain
     restart: unless-stopped
 
